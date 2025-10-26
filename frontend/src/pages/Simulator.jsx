@@ -66,7 +66,7 @@ export default function Simulator() {
                   {Object.entries(v).map(([lk, lv]) => (
                     <div key={lk} className="flex items-center justify-between gap-2">
                       <label className="text-sm w-1/2">{lk}</label>
-                      <input className="w-1/2 border rounded px-2 py-1" type="text" value={lv}
+                      <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400" type="text" value={lv}
                         onChange={e =>
                           setProp(p => ({
                             ...p,
@@ -87,7 +87,7 @@ export default function Simulator() {
             return (
               <div key={k} className="flex items-center justify-between gap-2">
                 <label className="text-sm w-1/2">{k}</label>
-                <input className="w-1/2 border rounded px-2 py-1" type="text" value={v}
+                <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400" type="text" value={v}
                   onChange={e =>
                     setProp(p => ({
                       ...p,
@@ -133,9 +133,17 @@ export default function Simulator() {
           {result && (
             <div className="space-y-3">
               <div className="grid md:grid-cols-3 gap-2 text-sm">
-                <div>Monthly Debt: <span className="font-mono">${'{'}result.monthly_debt.toFixed(2){'}'}</span></div>
-                <div>Estimated IRR: <span className="font-mono">{'${'}(result.irr*100).toFixed(2){'}'}%</span></div>
-                <div>Horizon: <span className="font-mono">{'${'}(prop.hold_years*12){'}'} months</span></div>
+                <div className="grid md:grid-cols-3 gap-2 text-sm">
+                  <div>
+                    Monthly Debt: <span className="font-mono">${result.monthly_debt.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    Estimated IRR: <span className="font-mono">{(result.irr * 100).toFixed(2)}%</span>
+                  </div>
+                  <div>
+                    Horizon: <span className="font-mono">{prop.hold_years * 12} months</span>
+                  </div>
+                </div>
               </div>
               <SimulationChart data={monthlyCF} dataKey="cashflow" label="Monthly Cash Flow" />
             </div>
