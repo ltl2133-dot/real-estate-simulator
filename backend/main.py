@@ -6,9 +6,16 @@ from routes.portfolio import router as portfolio_router
 app = FastAPI(title="Real Estate Portfolio Simulator API", version="0.1.0")
 
 # CORS (adjust as needed for prod)
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost:5173",  # local dev
+    "https://real-estate-simulator-gules.vercel.app",  # your live frontend
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
