@@ -21,7 +21,11 @@ def simulate_property_monthly(prop: PropertyInput, seed: int | None = None) -> D
     # Debt service
     monthly_debt = 0.0
     if prop.loan:
-        monthly_debt = monthly_payment(prop.loan.loan_amount, prop.loan.interest_rate, prop.loan.term_years)
+        monthly_debt = monthly_payment(
+            prop.loan.loan_amount,
+            prop.loan.interest_rate,
+            prop.loan.term_years,
+        )
 
     # Trackers
     month_cf = []
@@ -32,9 +36,13 @@ def simulate_property_monthly(prop: PropertyInput, seed: int | None = None) -> D
 
     for _ in range(months):
         # Vacancy loss
-        vac_loss = monthly_vacancy_loss(rent, prop.vacancy_rate_annual, prop.vacancy_volatility)
+        vac_loss = monthly_vacancy_loss(
+            rent, prop.vacancy_rate_annual, prop.vacancy_volatility
+        )
         # Maintenance shocks
-        maint = maintenance_shock(prop.maintenance_shock_lambda, prop.maintenance_shock_avg_cost)
+        maint = maintenance_shock(
+            prop.maintenance_shock_lambda, prop.maintenance_shock_avg_cost
+        )
 
         # Net operating income before debt
         income = rent - vac_loss
@@ -52,11 +60,18 @@ def simulate_property_monthly(prop: PropertyInput, seed: int | None = None) -> D
         rent = growth_step(rent, prop.rent_growth_mean, prop.rent_growth_std)
         opex = growth_step(opex, prop.expense_growth_mean, prop.expense_growth_std)
 
-    # Investment cash flows for IRR (simple assumption):
-    # t0 outflow = purchase price (and optionally down payment), tN inflow = 0 (no sale modeled here in MVP)
-    # Extend later to include terminal sale value net of fees/taxes.
-    cash_flows = [-prop.purchase_price] + month_cf
+    # --- Investment Cash Flows & IRR ---
+    # Outflow = purchase price; inflows = monthly CFs; final inflow = sale value
+    sale_value = prop.purchase_price * ((1 + prop.appreciation_mean) ** prop.hold_years)
+    cash_flows = [-prop.purchase_price] + month_cf + [sale_value]
+
     portfolio_irr = irr(cash_flows, guess=0.08)
+    if not np.isfinite(portfolio_irr):
+        portfolio_irr = 0.0
+
+    # --- Derived Metrics ---
+    final_value = sale_value
+    total_net_cashflow = sum(month_cf) + final_value - prop.purchase_price
 
     return {
         "cash_flows": month_cf,
@@ -66,7 +81,10 @@ def simulate_property_monthly(prop: PropertyInput, seed: int | None = None) -> D
         "maintenance": month_maint,
         "monthly_debt": monthly_debt,
         "irr": portfolio_irr,
+        "total_value": final_value,
+        "total_net_cashflow": total_net_cashflow,
     }
+
 
 def simulate_portfolio(props: list[PropertyInput], simulations: int = 500) -> Dict[str, Any]:
     # Monte Carlo runs — aggregate per-month CF distributions
