@@ -5,3 +5,20 @@
 :root {
   color-scheme: light dark;
 }
+
+/* ---------- Global input visibility fix ---------- */
+input {
+  color: white;                  /* Text inside inputs appears white */
+  background-color: #1f2937;     /* Tailwind gray-800 background */
+  border-radius: 0.375rem;       /* rounded-md style */
+  padding: 0.25rem 0.5rem;       /* Small internal padding */
+}
+
+input:focus {
+  outline: none;
+  background-color: #374151;     /* Slightly lighter gray when focused */
+}
+
+::placeholder {
+  color: #9ca3af;                /* Tailwind gray-400 placeholder */
+}
