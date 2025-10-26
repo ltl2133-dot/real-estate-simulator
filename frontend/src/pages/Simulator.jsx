@@ -24,13 +24,13 @@ const defaultProp = {
   loan: { loan_amount: 245000, interest_rate: 0.065, term_years: 30 }
 }
 
-export default function Simulator(){
+export default function Simulator() {
   const [prop, setProp] = useState(defaultProp)
   const [result, setResult] = useState(null)
   const [portfolioRes, setPortfolioRes] = useState(null)
   const [portfolio, setPortfolio] = useState([])
 
-  useEffect(()=>{ (async()=> setPortfolio(await listPortfolio()))() },[])
+  useEffect(() => { (async () => setPortfolio(await listPortfolio()))() }, [])
 
   const onRun = async () => {
     const r = await simulateProperty(prop)
@@ -48,26 +48,37 @@ export default function Simulator(){
     setPortfolioRes(r)
   }
 
-  const monthlyCF = useMemo(()=>{
-    if(!result) return []
-    return result.cash_flows.map((v, i)=>({ month: i+1, cashflow: v }))
-  },[result])
+  const monthlyCF = useMemo(() => {
+    if (!result) return []
+    return result.cash_flows.map((v, i) => ({ month: i + 1, cashflow: v }))
+  }, [result])
 
   return (
     <div className="grid md:grid-cols-3 gap-6">
       <div className="md:col-span-1 space-y-4">
         <h2 className="text-lg font-semibold">Property Inputs</h2>
         <div className="space-y-2 bg-white border rounded-xl p-4">
-          {Object.entries(prop).map(([k,v])=>{
-            if(typeof v === 'object' && v!==null){
+          {Object.entries(prop).map(([k, v]) => {
+            if (typeof v === 'object' && v !== null) {
               return (
                 <fieldset key={k} className="border rounded-lg p-3 space-y-2">
                   <legend className="text-sm font-medium">Loan</legend>
-                  {Object.entries(v).map(([lk,lv])=> (
+                  {Object.entries(v).map(([lk, lv]) => (
                     <div key={lk} className="flex items-center justify-between gap-2">
                       <label className="text-sm w-1/2">{lk}</label>
-                      <input className="w-1/2 border rounded px-2 py-1" type="number" value={lv}
-                        onChange={e=>setProp(p=>({...p, loan:{...p.loan, [lk]: parseFloat(e.target.value)}}))} />
+                      <input className="w-1/2 border rounded px-2 py-1" type="text" value={lv}
+                        onChange={e =>
+                          setProp(p => ({
+                            ...p,
+                            loan: {
+                              ...p.loan,
+                              [lk]:
+                                ["interest_rate", "loan_amount", "term_years", "amortization_years"].includes(lk)
+                                  ? parseFloat(e.target.value)
+                                  : e.target.value,
+                            },
+                          }))
+                        } />
                     </div>
                   ))}
                 </fieldset>
@@ -76,8 +87,32 @@ export default function Simulator(){
             return (
               <div key={k} className="flex items-center justify-between gap-2">
                 <label className="text-sm w-1/2">{k}</label>
-                <input className="w-1/2 border rounded px-2 py-1" type="number" value={v}
-                  onChange={e=>setProp(p=>({...p, [k]: parseFloat(e.target.value)}))} />
+                <input className="w-1/2 border rounded px-2 py-1" type="text" value={v}
+                  onChange={e =>
+                    setProp(p => ({
+                      ...p,
+                      [k]:
+                        [
+                          "purchase_price",
+                          "monthly_rent",
+                          "monthly_expenses",
+                          "taxes_insurance_monthly",
+                          "capex_reserve_monthly",
+                          "rent_growth_mean",
+                          "rent_growth_std",
+                          "expense_growth_mean",
+                          "expense_growth_std",
+                          "vacancy_rate_annual",
+                          "vacancy_volatility",
+                          "appreciation_mean",
+                          "appreciation_std",
+                          "maintenance_shock_lambda",
+                          "maintenance_shock_avg_cost",
+                        ].includes(k)
+                          ? parseFloat(e.target.value)
+                          : e.target.value,
+                    }))
+                  } />
               </div>
             )
           })}
@@ -113,8 +148,8 @@ export default function Simulator(){
           {portfolioRes && (
             <div className="space-y-3">
               <p className="text-sm text-slate-700">Showing expected monthly CF with 10th–90th percentile band.</p>
-              <SimulationChart data={portfolioRes.expected_monthly_cf.map((v,i)=>({
-                month: i+1,
+              <SimulationChart data={portfolioRes.expected_monthly_cf.map((v, i) => ({
+                month: i + 1,
                 expected: v,
                 p10: portfolioRes.p10_cf[i],
                 p90: portfolioRes.p90_cf[i]
