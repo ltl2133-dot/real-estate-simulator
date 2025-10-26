@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://real-estate-simulator-0rv6.onrender.com/';
 
 export async function simulateProperty(payload) {
   const res = await fetch(`${API_BASE}/simulate/property`, {
@@ -18,10 +18,21 @@ export async function simulatePortfolio(payload, simulations = 500) {
 
 export async function addProperty(prop) {
   const res = await fetch(`${API_BASE}/portfolio`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(prop)
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(prop),
   });
-  return res.json();
+
+  if (!res.ok) {
+    const message = await res.text();
+    console.error(`Failed to add property (${res.status}):`, message);
+    throw new Error(`Backend error: ${res.status}`);
+  }
+
+  // Return backend simulation result
+  const data = await res.json();
+  console.log("Added property with backend metrics:", data);
+  return data;
 }
 
 export async function listPortfolio() {

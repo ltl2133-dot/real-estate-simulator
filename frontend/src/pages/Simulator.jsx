@@ -38,9 +38,13 @@ export default function Simulator() {
   }
 
   const onAdd = async () => {
-    await addProperty(prop)
-    setPortfolio(await listPortfolio())
+  try {
+    const added = await addProperty(prop); // get backend simulation result directly
+    setPortfolio(prev => [...prev, added]); // append instantly
+  } catch (err) {
+    console.error("Failed to add property:", err);
   }
+};
 
   const onRunPortfolio = async () => {
     const payload = { properties: portfolio }
