@@ -1,4 +1,3 @@
-# backend/models/simulation.py
 from typing import Dict, Any
 import numpy as np
 from models.property import PropertyInput
@@ -9,8 +8,8 @@ def simulate_property_monthly(prop: PropertyInput, seed: int | None = None) -> D
     rng = np.random.default_rng(seed)
     months = int(prop.hold_years * 12)
 
-    rent = prop.monthly_rent
-    opex = prop.monthly_expenses + prop.taxes_insurance_monthly + prop.capex_reserve_monthly
+    rent = float(prop.monthly_rent)
+    opex = float(prop.monthly_expenses + prop.taxes_insurance_monthly + prop.capex_reserve_monthly)
 
     monthly_debt = 0.0
     if prop.loan:
@@ -21,44 +20,44 @@ def simulate_property_monthly(prop: PropertyInput, seed: int | None = None) -> D
             prop.loan.amortization_years or prop.loan.term_years,
         )
 
-    month_cf, month_income, month_expenses, month_vacancy, month_maint = [], [], [], [], []
+    cf_list, inc_list, exp_list, vac_list, maint_list = [], [], [], [], []
 
     for _ in range(months):
-        vac_loss = monthly_vacancy_loss(rng, rent, prop.vacancy_rate_annual, prop.vacancy_volatility)
+        vac = monthly_vacancy_loss(rng, rent, prop.vacancy_rate_annual, prop.vacancy_volatility)
         maint = maintenance_shock(rng, prop.maintenance_shock_lambda, prop.maintenance_shock_avg_cost)
 
-        income = rent - vac_loss
+        income = rent - vac
         expenses = opex + maint
         noi = income - expenses
         cf = noi - monthly_debt
 
-        month_income.append(float(income))
-        month_expenses.append(float(expenses))
-        month_vacancy.append(float(vac_loss))
-        month_maint.append(float(maint))
-        month_cf.append(float(cf))
+        inc_list.append(float(income))
+        exp_list.append(float(expenses))
+        vac_list.append(float(vac))
+        maint_list.append(float(maint))
+        cf_list.append(float(cf))
 
         rent = growth_step(rng, rent, prop.rent_growth_mean, prop.rent_growth_std)
         opex = growth_step(rng, opex, prop.expense_growth_mean, prop.expense_growth_std)
 
-    # Put sale at end-of-horizon in the LAST month (keeps array length = months)
-    sale_value = prop.purchase_price * ((1 + prop.appreciation_mean) ** prop.hold_years)
-    if month_cf:
-        month_cf[-1] += float(sale_value)
+    # Sale at end of horizon (included in last month's CF)
+    sale_value = float(prop.purchase_price * ((1.0 + prop.appreciation_mean) ** prop.hold_years))
+    if cf_list:
+        cf_list[-1] += sale_value
 
-    cash_flows = [-float(prop.purchase_price)] + month_cf
-    irr_monthly = irr(cash_flows)
-    irr_annual = annualize(irr_monthly) if irr_monthly is not None else 0.0
+    flows = [-float(prop.purchase_price)] + cf_list
+    irr_m = irr(flows)
+    irr_y = annualize(irr_m)
 
     return {
-        "cash_flows": month_cf,           # length = months
-        "income": month_income,
-        "expenses": month_expenses,
-        "vacancy_losses": month_vacancy,
-        "maintenance": month_maint,
+        "cash_flows": cf_list,
+        "income": inc_list,
+        "expenses": exp_list,
+        "vacancy_losses": vac_list,
+        "maintenance": maint_list,
         "monthly_debt": monthly_debt,
-        "irr_monthly": irr_monthly,
-        "irr_annual": irr_annual,         # convenience so UI doesn’t double-convert
+        "irr_monthly": irr_m,
+        "irr_annual": irr_y,
         "total_value": sale_value,
     }
 
@@ -68,26 +67,24 @@ def simulate_portfolio(props: list[PropertyInput], simulations: int = 500, seed:
 
     rng = np.random.default_rng(seed)
     months = int(max(p.hold_years for p in props) * 12)
-    sim_cf = np.zeros((simulations, months))
+    sim_cf = np.zeros((simulations, months), dtype=float)
 
-    # Monte Carlo
     for s in range(simulations):
-        total_cf = np.zeros(months)
-        # independent seeds per property per run
-        for i, p in enumerate(props):
+        total = np.zeros(months, dtype=float)
+        for p in props:
             res = simulate_property_monthly(p, seed=int(rng.integers(0, 2**31 - 1)))
             cf = np.array(res["cash_flows"], dtype=float)
             if len(cf) < months:
                 cf = np.pad(cf, (0, months - len(cf)), constant_values=0.0)
-            total_cf += cf
-        sim_cf[s, :] = total_cf
+            total += cf
+        sim_cf[s, :] = total
 
-    exp_cf = sim_cf.mean(axis=0)
+    exp = sim_cf.mean(axis=0)
     p10 = np.percentile(sim_cf, 10, axis=0)
     p90 = np.percentile(sim_cf, 90, axis=0)
 
     return {
-        "expected_monthly_cf": exp_cf.tolist(),
+        "expected_monthly_cf": exp.tolist(),
         "p10_cf": p10.tolist(),
         "p90_cf": p90.tolist(),
         "horizon_months": months,

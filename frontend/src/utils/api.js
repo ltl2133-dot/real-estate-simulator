@@ -1,11 +1,10 @@
-// frontend/src/utils/api.js
 const API_BASE = (import.meta.env.VITE_API_URL ?? 'https://real-estate-simulator-0rv6.onrender.com').replace(/\/+$/, '');
 
 async function safeFetch(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`Request failed ${res.status}: ${msg}`);
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
   }
   return res.json();
 }
