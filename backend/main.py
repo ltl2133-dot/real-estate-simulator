@@ -6,18 +6,12 @@ from routes.portfolio import router as portfolio_router
 
 app = FastAPI(title="Real Estate Portfolio Simulator API", version="1.0.0")
 
-vite_ports = range(5173, 5176)
-local_hosts = ("http://localhost", "http://127.0.0.1")
-
-allowed_origins = [f"{host}:{port}" for host in local_hosts for port in vite_ports]
-
-# Preserve preview/alternate dev hosts that the frontend tooling may use.
-allowed_origins.extend(
-    [
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-    ]
-)
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+]
 
 app.add_middleware(
     CORSMiddleware,
