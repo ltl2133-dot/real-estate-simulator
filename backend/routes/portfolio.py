@@ -1,28 +1,35 @@
+from __future__ import annotations
+
 from fastapi import APIRouter
-from models.property import PropertyInput
+
+from models.property import PortfolioEntry, PropertyInput
 from models.simulation import simulate_property_monthly
 
 router = APIRouter()
-PORTFOLIO: list[dict] = []
 
-@router.get("")
-def list_properties():
+PORTFOLIO: list[PortfolioEntry] = []
+
+
+@router.get("", response_model=list[PortfolioEntry])
+def list_properties() -> list[PortfolioEntry]:
     return PORTFOLIO
 
-@router.post("")
-def add_property(prop: PropertyInput):
+
+@router.post("", response_model=PortfolioEntry)
+def add_property(prop: PropertyInput) -> PortfolioEntry:
     sim = simulate_property_monthly(prop)
-    record = {
+    record = PortfolioEntry(
         **prop.dict(),
-        "monthly_debt": sim.get("monthly_debt", 0.0),
-        "irr_monthly": sim.get("irr_monthly", 0.0),
-        "irr_annual": sim.get("irr_annual", 0.0),
-        "total_value": sim.get("total_value", 0.0),
-    }
+        monthly_debt=sim.monthly_debt,
+        irr_monthly=sim.irr_monthly,
+        irr_annual=sim.irr_annual,
+        total_value=sim.total_value,
+    )
     PORTFOLIO.append(record)
     return record
 
-@router.delete("")
-def clear_portfolio():
+
+@router.delete("", response_model=dict)
+def clear_portfolio() -> dict[str, str]:
     PORTFOLIO.clear()
     return {"status": "cleared"}
