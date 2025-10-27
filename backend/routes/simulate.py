@@ -1,16 +1,31 @@
-from fastapi import APIRouter, Query
+from __future__ import annotations
+
 from typing import Optional
-from models.property import PropertyInput
-from models.simulation import simulate_property_monthly, simulate_portfolio
+
+from fastapi import APIRouter, HTTPException, Query
+
+from models.property import PortfolioInput, PropertyInput
+from models.simulation import (
+    PortfolioSimulationResult,
+    SimulationResult,
+    simulate_portfolio,
+    simulate_property_monthly,
+)
 
 router = APIRouter()
 
-@router.post("/property")
-def run_property(prop: PropertyInput, seed: Optional[int] = None):
+
+@router.post("/property", response_model=SimulationResult)
+def run_property(prop: PropertyInput, seed: Optional[int] = Query(default=None, ge=0)) -> SimulationResult:
     return simulate_property_monthly(prop, seed=seed)
 
-@router.post("/portfolio")
-def run_portfolio(payload: dict, sims: int = Query(500, ge=1, le=5000), seed: Optional[int] = None):
-    props_data = payload.get("properties", [])
-    props = [PropertyInput(**p) if not isinstance(p, PropertyInput) else p for p in props_data]
-    return simulate_portfolio(props, simulations=sims, seed=seed)
+
+@router.post("/portfolio", response_model=PortfolioSimulationResult)
+def run_portfolio(
+    payload: PortfolioInput,
+    sims: int = Query(500, ge=1, le=5000),
+    seed: Optional[int] = Query(default=None, ge=0),
+) -> PortfolioSimulationResult:
+    if not payload.properties:
+        raise HTTPException(status_code=400, detail="At least one property is required")
+    return simulate_portfolio(payload.properties, simulations=sims, seed=seed)
