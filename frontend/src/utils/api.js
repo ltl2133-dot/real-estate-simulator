@@ -1,46 +1,64 @@
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'https://real-estate-simulator-0rv6.onrender.com').replace(/\/+$/, '');
+const resolveApiBase = () => {
+  const envValue = import.meta.env.VITE_API_URL?.trim()
+  if (envValue) return envValue
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location
+    const port = 8000
+    return `${protocol}//${hostname}:${port}`
+  }
+  return 'http://localhost:8000'
+}
+
+export const API_BASE = resolveApiBase().replace(/\/+$/, '')
 
 async function safeFetch(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+  const finalOptions = {
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    ...options,
   }
-  return res.json();
+
+  const res = await fetch(url, finalOptions)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`)
+  }
+  if (res.status === 204) {
+    return null
+  }
+  return res.json()
 }
 
 export async function simulateProperty(payload, seed) {
-  const qs = seed != null ? `?seed=${seed}` : '';
+  const qs = seed != null ? `?seed=${seed}` : ''
   return safeFetch(`${API_BASE}/simulate/property${qs}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function simulatePortfolio(payload, sims = 500, seed) {
-  const params = new URLSearchParams();
-  if (sims) params.set('sims', String(sims));
-  if (seed != null) params.set('seed', String(seed));
-  return safeFetch(`${API_BASE}/simulate/portfolio?${params.toString()}`, {
+  const params = new URLSearchParams()
+  if (sims) params.set('sims', String(sims))
+  if (seed != null) params.set('seed', String(seed))
+  const query = params.toString()
+  const qs = query ? `?${query}` : ''
+  return safeFetch(`${API_BASE}/simulate/portfolio${qs}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function addProperty(prop) {
   return safeFetch(`${API_BASE}/portfolio`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(prop)
-  });
+    body: JSON.stringify(prop),
+  })
 }
 
 export async function listPortfolio() {
-  return safeFetch(`${API_BASE}/portfolio`);
+  return safeFetch(`${API_BASE}/portfolio`)
 }
 
 export async function clearPortfolio() {
-  return safeFetch(`${API_BASE}/portfolio`, { method: 'DELETE' });
+  return safeFetch(`${API_BASE}/portfolio`, { method: 'DELETE' })
 }
