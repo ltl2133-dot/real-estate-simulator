@@ -1,3 +1,4 @@
+// frontend/src/pages/Simulator.jsx
 import { useEffect, useMemo, useState } from 'react'
 import { simulateProperty, simulatePortfolio, addProperty, listPortfolio } from '../utils/api'
 import SimulationChart from '../components/SimulationChart'
@@ -24,38 +25,27 @@ const defaultProp = {
   loan: { loan_amount: 245000, interest_rate: 0.065, term_years: 30 }
 }
 
+const numOrZero = (val) => {
+  const v = parseFloat(val)
+  return Number.isFinite(v) ? v : 0
+}
+
 export default function Simulator() {
   const [prop, setProp] = useState(defaultProp)
   const [result, setResult] = useState(null)
-  const [portfolioRes, setPortfolioRes] = useState(null)
   const [portfolio, setPortfolio] = useState([])
+  const [portfolioRes, setPortfolioRes] = useState(null)
 
   useEffect(() => { (async () => setPortfolio(await listPortfolio()))() }, [])
 
-  const onRun = async () => {
-    const r = await simulateProperty(prop)
-    setResult(r)
-  }
-
-  const onAdd = async () => {
-  try {
-    const added = await addProperty(prop); // get backend simulation result directly
-    setPortfolio(prev => [...prev, added]); // append instantly
-  } catch (err) {
-    console.error("Failed to add property:", err);
-  }
-};
-
+  const onRun = async () => setResult(await simulateProperty(prop))
+  const onAdd = async () => { await addProperty(prop); setPortfolio(await listPortfolio()) }
   const onRunPortfolio = async () => {
     const payload = { properties: portfolio }
-    const r = await simulatePortfolio(payload, 400)
-    setPortfolioRes(r)
+    setPortfolioRes(await simulatePortfolio(payload, 400))
   }
 
-  const monthlyCF = useMemo(() => {
-    if (!result) return []
-    return result.cash_flows.map((v, i) => ({ month: i + 1, cashflow: v }))
-  }, [result])
+  const monthlyCF = useMemo(() => result ? result.cash_flows.map((v, i) => ({ month: i + 1, cashflow: v })) : [], [result])
 
   return (
     <div className="grid md:grid-cols-3 gap-6">
@@ -71,18 +61,10 @@ export default function Simulator() {
                     <div key={lk} className="flex items-center justify-between gap-2">
                       <label className="text-sm w-1/2">{lk}</label>
                       <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400" type="text" value={lv}
-                        onChange={e =>
-                          setProp(p => ({
-                            ...p,
-                            loan: {
-                              ...p.loan,
-                              [lk]:
-                                ["interest_rate", "loan_amount", "term_years", "amortization_years"].includes(lk)
-                                  ? parseFloat(e.target.value)
-                                  : e.target.value,
-                            },
-                          }))
-                        } />
+                        onChange={e => setProp(p => ({
+                          ...p,
+                          loan: { ...p.loan, [lk]: numOrZero(e.target.value) }
+                        }))} />
                     </div>
                   ))}
                 </fieldset>
@@ -92,31 +74,18 @@ export default function Simulator() {
               <div key={k} className="flex items-center justify-between gap-2">
                 <label className="text-sm w-1/2">{k}</label>
                 <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400" type="text" value={v}
-                  onChange={e =>
-                    setProp(p => ({
-                      ...p,
-                      [k]:
-                        [
-                          "purchase_price",
-                          "monthly_rent",
-                          "monthly_expenses",
-                          "taxes_insurance_monthly",
-                          "capex_reserve_monthly",
-                          "rent_growth_mean",
-                          "rent_growth_std",
-                          "expense_growth_mean",
-                          "expense_growth_std",
-                          "vacancy_rate_annual",
-                          "vacancy_volatility",
-                          "appreciation_mean",
-                          "appreciation_std",
-                          "maintenance_shock_lambda",
-                          "maintenance_shock_avg_cost",
-                        ].includes(k)
-                          ? parseFloat(e.target.value)
-                          : e.target.value,
-                    }))
-                  } />
+                  onChange={e => setProp(p => ({
+                    ...p,
+                    [k]: [
+                      "purchase_price", "monthly_rent", "monthly_expenses",
+                      "taxes_insurance_monthly", "capex_reserve_monthly",
+                      "rent_growth_mean", "rent_growth_std",
+                      "expense_growth_mean", "expense_growth_std",
+                      "vacancy_rate_annual", "vacancy_volatility",
+                      "appreciation_mean", "appreciation_std",
+                      "maintenance_shock_lambda", "maintenance_shock_avg_cost"
+                    ].includes(k) ? numOrZero(e.target.value) : e.target.value
+                  }))} />
               </div>
             )
           })}
@@ -130,6 +99,7 @@ export default function Simulator() {
         </div>
         <StressTestPanel />
       </div>
+
       <div className="md:col-span-2 space-y-6">
         <div className="bg-white border rounded-xl p-4">
           <h3 className="font-medium mb-2">Property Simulation Result</h3>
@@ -137,35 +107,13 @@ export default function Simulator() {
           {result && (
             <div className="space-y-3">
               <div className="grid md:grid-cols-3 gap-2 text-sm">
-                <div className="grid md:grid-cols-3 gap-2 text-sm">
-                  <div>
-                    Monthly Debt: <span className="font-mono">${result.monthly_debt.toFixed(2)}</span>
-                  </div>
-                  <div>
-                    Estimated IRR: <span className="font-mono">{(result.irr * 100).toFixed(2)}%</span>
-                  </div>
-                  <div>
-                    Horizon: <span className="font-mono">{prop.hold_years * 12} months</span>
-                  </div>
-                </div>
+                <div>Monthly Debt: <span className="font-mono">${result.monthly_debt.toFixed(2)}</span></div>
+                <div>Estimated IRR: <span className="font-mono">
+                  {(((1 + result.irr) ** 12 - 1) * 100).toFixed(2)}%
+                </span></div>
+                <div>Horizon: <span className="font-mono">{prop.hold_years * 12} months</span></div>
               </div>
               <SimulationChart data={monthlyCF} dataKey="cashflow" label="Monthly Cash Flow" />
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white border rounded-xl p-4">
-          <h3 className="font-medium mb-2">Portfolio Monte Carlo</h3>
-          {!portfolioRes && <p className="text-sm text-slate-600">Add properties and run portfolio simulation.</p>}
-          {portfolioRes && (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-700">Showing expected monthly CF with 10th–90th percentile band.</p>
-              <SimulationChart data={portfolioRes.expected_monthly_cf.map((v, i) => ({
-                month: i + 1,
-                expected: v,
-                p10: portfolioRes.p10_cf[i],
-                p90: portfolioRes.p90_cf[i]
-              }))} dataKey="expected" label="Expected Monthly CF" p10Key="p10" p90Key="p90" />
             </div>
           )}
         </div>
