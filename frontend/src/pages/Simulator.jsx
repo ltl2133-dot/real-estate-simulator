@@ -22,13 +22,23 @@ const defaultProp = {
   maintenance_shock_lambda: 0.15,
   maintenance_shock_avg_cost: 1200,
   hold_years: 10,
-  loan: { loan_amount: 245000, interest_rate: 0.065, term_years: 30 }
+  loan: { loan_amount: 245000, interest_rate: 0.065, term_years: 30, amortization_years: 30 }
 }
 
-const numOrZero = (val) => {
-  const v = parseFloat(val)
-  return Number.isFinite(v) ? v : 0
-}
+const NUM_KEYS = new Set([
+  "purchase_price","monthly_rent","monthly_expenses",
+  "taxes_insurance_monthly","capex_reserve_monthly",
+  "rent_growth_mean","rent_growth_std",
+  "expense_growth_mean","expense_growth_std",
+  "vacancy_rate_annual","vacancy_volatility",
+  "appreciation_mean","appreciation_std",
+  "maintenance_shock_lambda","maintenance_shock_avg_cost","hold_years"
+]);
+
+const numOrZero = v => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
 export default function Simulator() {
   const [prop, setProp] = useState(defaultProp)
@@ -39,13 +49,23 @@ export default function Simulator() {
   useEffect(() => { (async () => setPortfolio(await listPortfolio()))() }, [])
 
   const onRun = async () => setResult(await simulateProperty(prop))
-  const onAdd = async () => { await addProperty(prop); setPortfolio(await listPortfolio()) }
-  const onRunPortfolio = async () => {
-    const payload = { properties: portfolio }
-    setPortfolioRes(await simulatePortfolio(payload, 400))
+
+  const onAdd = async () => {
+    const added = await addProperty(prop)
+    setPortfolio(prev => [...prev, added])
   }
 
-  const monthlyCF = useMemo(() => result ? result.cash_flows.map((v, i) => ({ month: i + 1, cashflow: v })) : [], [result])
+  const onRunPortfolio = async () => {
+    if (portfolio.length === 0) return;
+    const payload = { properties: portfolio }
+    const r = await simulatePortfolio(payload, 400)
+    setPortfolioRes(r)
+  }
+
+  const monthlyCF = useMemo(
+    () => result ? result.cash_flows.map((v, i) => ({ month: i + 1, cashflow: v })) : [],
+    [result]
+  )
 
   return (
     <div className="grid md:grid-cols-3 gap-6">
@@ -60,11 +80,9 @@ export default function Simulator() {
                   {Object.entries(v).map(([lk, lv]) => (
                     <div key={lk} className="flex items-center justify-between gap-2">
                       <label className="text-sm w-1/2">{lk}</label>
-                      <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400" type="text" value={lv}
-                        onChange={e => setProp(p => ({
-                          ...p,
-                          loan: { ...p.loan, [lk]: numOrZero(e.target.value) }
-                        }))} />
+                      <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400"
+                        type="text" value={lv}
+                        onChange={e => setProp(p => ({ ...p, loan: { ...p.loan, [lk]: numOrZero(e.target.value) } }))} />
                     </div>
                   ))}
                 </fieldset>
@@ -73,19 +91,9 @@ export default function Simulator() {
             return (
               <div key={k} className="flex items-center justify-between gap-2">
                 <label className="text-sm w-1/2">{k}</label>
-                <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400" type="text" value={v}
-                  onChange={e => setProp(p => ({
-                    ...p,
-                    [k]: [
-                      "purchase_price", "monthly_rent", "monthly_expenses",
-                      "taxes_insurance_monthly", "capex_reserve_monthly",
-                      "rent_growth_mean", "rent_growth_std",
-                      "expense_growth_mean", "expense_growth_std",
-                      "vacancy_rate_annual", "vacancy_volatility",
-                      "appreciation_mean", "appreciation_std",
-                      "maintenance_shock_lambda", "maintenance_shock_avg_cost"
-                    ].includes(k) ? numOrZero(e.target.value) : e.target.value
-                  }))} />
+                <input className="w-1/2 border rounded-lg px-2 py-1 text-white bg-gray-800 placeholder-gray-400"
+                  type="text" value={v}
+                  onChange={e => setProp(p => ({ ...p, [k]: NUM_KEYS.has(k) ? numOrZero(e.target.value) : e.target.value }))} />
               </div>
             )
           })}
@@ -108,12 +116,32 @@ export default function Simulator() {
             <div className="space-y-3">
               <div className="grid md:grid-cols-3 gap-2 text-sm">
                 <div>Monthly Debt: <span className="font-mono">${result.monthly_debt.toFixed(2)}</span></div>
-                <div>Estimated IRR: <span className="font-mono">
-                  {(((1 + result.irr) ** 12 - 1) * 100).toFixed(2)}%
-                </span></div>
+                <div>Estimated IRR: <span className="font-mono">{(result.irr_annual * 100).toFixed(2)}%</span></div>
                 <div>Horizon: <span className="font-mono">{prop.hold_years * 12} months</span></div>
               </div>
               <SimulationChart data={monthlyCF} dataKey="cashflow" label="Monthly Cash Flow" />
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white border rounded-xl p-4">
+          <h3 className="font-medium mb-2">Portfolio Monte Carlo</h3>
+          {!portfolioRes && <p className="text-sm text-slate-600">Add properties and run portfolio simulation.</p>}
+          {portfolioRes && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-700">Expected monthly CF with 10th–90th percentile band.</p>
+              <SimulationChart
+                data={portfolioRes.expected_monthly_cf.map((v, i) => ({
+                  month: i + 1,
+                  expected: v,
+                  p10: portfolioRes.p10_cf[i],
+                  p90: portfolioRes.p90_cf[i]
+                }))}
+                dataKey="expected"
+                label="Expected Monthly CF"
+                p10Key="p10"
+                p90Key="p90"
+              />
             </div>
           )}
         </div>

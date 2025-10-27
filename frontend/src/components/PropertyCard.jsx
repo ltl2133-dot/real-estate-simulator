@@ -1,7 +1,10 @@
 // frontend/src/components/PropertyCard.jsx
 export default function PropertyCard({ p }) {
-  const irrMonthly = typeof p.irr === "number" ? p.irr : null;
-  const irrAnnualPct = irrMonthly == null ? null : ((1 + irrMonthly) ** 12 - 1) * 100;
+  const irrMonthly = typeof p.irr_monthly === "number" ? p.irr_monthly : (typeof p.irr === "number" ? p.irr : null);
+  const irrAnnual = typeof p.irr_annual === "number"
+    ? p.irr_annual
+    : (irrMonthly == null ? null : ((1 + irrMonthly) ** 12 - 1));
+
   const profitPct = (() => {
     const rent = p.monthly_rent || 0;
     const totalOut = (p.monthly_expenses || 0)
@@ -24,7 +27,7 @@ export default function PropertyCard({ p }) {
         <div>Expenses: <span className="font-mono">${p.monthly_expenses}</span></div>
         <div>Vacancy (ann): <span className="font-mono">{(p.vacancy_rate_annual * 100).toFixed(1)}%</span></div>
         <div>Growth (rent): <span className="font-mono">{(p.rent_growth_mean * 100).toFixed(1)}%</span></div>
-        <div>IRR: <span className="font-mono">{irrAnnualPct == null ? "—" : irrAnnualPct.toFixed(1) + "%"}</span></div>
+        <div>IRR: <span className="font-mono">{irrAnnual == null ? "—" : (irrAnnual * 100).toFixed(1) + "%"}</span></div>
         <div>Profitability: <span className="font-mono">{profitPct.toFixed(1)}%</span></div>
       </div>
       <div className="w-full h-2 bg-slate-200 rounded-full mt-2">

@@ -1,6 +1,5 @@
 // frontend/src/utils/api.js
-const API_BASE = (import.meta.env.VITE_API_URL ?? 'https://real-estate-simulator-0rv6.onrender.com')
-  .replace(/\/+$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL ?? 'https://real-estate-simulator-0rv6.onrender.com').replace(/\/+$/, '');
 
 async function safeFetch(url, options = {}) {
   const res = await fetch(url, options);
@@ -11,16 +10,20 @@ async function safeFetch(url, options = {}) {
   return res.json();
 }
 
-export async function simulateProperty(payload) {
-  return safeFetch(`${API_BASE}/simulate/property`, {
+export async function simulateProperty(payload, seed) {
+  const qs = seed != null ? `?seed=${seed}` : '';
+  return safeFetch(`${API_BASE}/simulate/property${qs}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
 }
 
-export async function simulatePortfolio(payload, sims = 500) {
-  return safeFetch(`${API_BASE}/simulate/portfolio?sims=${sims}`, {
+export async function simulatePortfolio(payload, sims = 500, seed) {
+  const params = new URLSearchParams();
+  if (sims) params.set('sims', String(sims));
+  if (seed != null) params.set('seed', String(seed));
+  return safeFetch(`${API_BASE}/simulate/portfolio?${params.toString()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
